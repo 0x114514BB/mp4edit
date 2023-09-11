@@ -32,9 +32,9 @@ export class MP4 {
           return;
         }
       }
-    }
+    };
 
-    // first thing to do is establish the root Arom - but from then on this can all be recursive.
+    // first thing to do is establish the root Atom - but from then on this can all be recursive.
     this.root = new Atom("root");
     recursiveParse(this.root, this.data);
 
@@ -58,7 +58,7 @@ export class MP4 {
         const header = new AtomData(new Uint8Array(8 + child.padding));
 
         const data = recursiveBuilder(child);
-        header.setUint32(0, data.byteLength + 8 + child.padding)
+        header.setUint32(0, data.byteLength + 8 + child.padding);
 
         // Writing control chars doesn't work with writeStr	
         for (let j = 0; j < 4; j++) {
@@ -70,7 +70,7 @@ export class MP4 {
       });
 
       return output;
-    }
+    };
 
     return recursiveBuilder(this.root);
   }
@@ -82,6 +82,7 @@ export class MP4 {
 
   // TODO: Make this return only a moov.udta.meta atom, and not require 
   // an MP4 buffer - leaving the user to add the atom where desired.
+  // TODO: generateMetaAtom
 
   // The only problem with that is that any change to the root atoms requires
   // offsetting the stco data. This could be part of makeMP4, but it's hard
@@ -93,7 +94,9 @@ export class MP4 {
     artist?: string,
     album?: string,
     genre?: string,
-    cover?: string
+    comment?: string,
+    desc?: string,
+    cover?: string | Uint8Array
   }) {
     console.log("Giving tags!");
     let offset = this.root.ensureChild("moov.udta").getByteLength();
@@ -107,7 +110,7 @@ export class MP4 {
     metadata.parent!.padding = 4; // meta atom is an odd one.
 
     const addDataAtom = function (name: string, str: string | number) {
-      console.log("Adding data atom: " + name + " with value " + str + "")
+      console.log("Adding data atom: " + name + " with value " + str + "");
       const data = metadata.ensureChild(name + '.data');
       if (str) {
         // Track number is a special case.
@@ -115,7 +118,7 @@ export class MP4 {
           if(typeof str == 'string') str = parseInt(str);
           data.data = new AtomData(new Uint8Array(40));
           data.data.seek(8);
-          data.data.writeUint32(str)
+          data.data.writeUint32(str);
           return data;
         } 
         if(typeof str !== 'string') throw new Error('String expected for addDataAtom');
@@ -126,7 +129,7 @@ export class MP4 {
         data.data.writeString(str);
       }
       return data;
-    }
+    };
 
     // It has to be done in this order for cover art to work... I think?
     if (tags.track) addDataAtom('trkn', tags.track);
@@ -134,26 +137,30 @@ export class MP4 {
     if (tags.artist) addDataAtom('\xA9ART', tags.artist);
     if (tags.album) addDataAtom('\xA9alb', tags.album);
     if (tags.genre) addDataAtom('\xA9gen', tags.genre);
+    if (tags.comment) addDataAtom('\xA9cmt', tags.comment);
+    if (tags.desc) addDataAtom('desc', tags.desc);
 
     if (tags.cover) {
       console.log("Adding cover art!");
       const cover = addDataAtom('covr', '');
-
-      const BASE64_MARKER = ';base64,';
-
-      const base64Index = tags.cover.indexOf(BASE64_MARKER) + BASE64_MARKER.length;
-      const base64 = tags.cover.substring(base64Index);
-      const raw = atob(base64);
-      const rawLength = raw.length;
-      const array = new Uint8Array(new ArrayBuffer(rawLength));
-
-      for (let i = 0; i < rawLength; i++) {
-        array[i] = raw.charCodeAt(i);
+      if (typeof tags.cover === 'string'){
+        const BASE64_MARKER = ';base64,';
+  
+        const base64Index = tags.cover.indexOf(BASE64_MARKER) + BASE64_MARKER.length;
+        const base64 = tags.cover.substring(base64Index);
+        const raw = atob(base64);
+        const rawLength = raw.length;
+        const array = new Uint8Array(new ArrayBuffer(rawLength));
+  
+        for (let i = 0; i < rawLength; i++) {
+          array[i] = raw.charCodeAt(i);
+        }
       }
-
-      cover.data = new AtomData(new Uint8Array(8));
-      cover.data.writeUint32(13);
-      cover.data = concatBuffers(cover.data, new AtomData(array));
+      else if (tags.cover instanceof Uint8Array){
+        cover.data = new AtomData(new Uint8Array(8));
+        cover.data.writeUint32(13);
+        cover.data = concatBuffers(cover.data, new AtomData(tags.cover));
+      }
     }
 
 
@@ -167,13 +174,13 @@ export class MP4 {
 
     stco.data.seek(8);
     while (stco.data.tell() < stco.data.byteLength) {
-      console.log("Offsetting stco data by " + offset + " bytes.")
+      console.log("Offsetting stco data by " + offset + " bytes.");
       const current = BigInt(offset) + stco.data.getUint32();
       stco.data.writeUint32(current);
     }
 
     return this;
-  };
+  }
 
   getCommonTags() {
     const metadata = this.root.ensureChild("moov.udta.meta.ilst");
@@ -186,9 +193,9 @@ export class MP4 {
       const data = leaf.children[0].data;
       data.seek(8);
       return data;
-    }
+    };
 
-    var tags : {[key: string]: string} = {};
+    const tags : {[key: string]: string} = {};
 
     tags.title = getDataAtom('\xA9nam')?.getString() ?? "";
     tags.artist = getDataAtom('\xA9ART')?.getString() ?? "";
@@ -197,19 +204,20 @@ export class MP4 {
     tags.cover = '';
 
 
-    var cover = getDataAtom('covr');
+    const cover = getDataAtom('covr');
     if (cover) {
       const data = cover.getBytes();
       const CHUNK_SIZE = 0x8000; //arbitrary number
       let index = 0;
       const length = data.length;
       let result = '';
-      let slice;
+      let slice: Uint8Array;
       while (index < length) {
         slice = data.subarray(index, Math.min(index + CHUNK_SIZE, length));
         result += String.fromCharCode.apply(null, slice);
         index += CHUNK_SIZE;
       }
+      // gif?
       tags.cover = 'data:image/gif;base64,' + btoa(result);
     }
 
@@ -226,4 +234,4 @@ const concatBuffers = function (buf1: AtomData, buf2: AtomData) {
   newbuf.set(new Uint8Array(buf2.buffer), buf1.byteLength);
 
   return new AtomData(newbuf);
-}
+};

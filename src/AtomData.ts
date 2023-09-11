@@ -14,7 +14,7 @@
 export class AtomData {
   get byteLength() {
     return this.buffer.byteLength;
-  };
+  }
   private position = 0;
   constructor(public buffer: Uint8Array = new Uint8Array(0)) { }
 
@@ -28,7 +28,7 @@ export class AtomData {
   }
 
   writeString(str: string) {
-    const bytes = str.split('').map(c => c.charCodeAt(0))
+    const bytes = str.split('').map(c => c.charCodeAt(0));
     this.buffer.set(bytes, this.position);
     this.position += bytes.length;
     return this;
@@ -38,13 +38,13 @@ export class AtomData {
     // Max Safe Integer in JS is 2^54 - so we don't need
     // bigint for writing a Uint32 - but it's nice to accept
     // as a potential input.
-    let num = Number(inputNum);
+    const num = Number(inputNum);
     const bytes = [
       num & 0xff,
       (num >> 8) & 0xff,
       (num >> 16) & 0xff,
       num >> 24
-    ]
+    ];
     this.buffer.set(bytes, this.position);
     this.position += 4;
     return this;
@@ -53,11 +53,11 @@ export class AtomData {
   tell() {
     return this.position;
   }
-  setUint32(pos: number, num: any) {
+  setUint32(pos: number, num: number) {
     const bytes = [
       num & 0xff,
       (num >>> 8) & 0xff,
-    ]
+    ];
     this.buffer.set(bytes, pos);
   }
 
@@ -82,7 +82,7 @@ export class AtomData {
   }
 
   getBytes(length = this.byteLength - this.position) {
-    return this.buffer.subarray(this.position, this.position + length)
+    return this.buffer.subarray(this.position, this.position + length);
   }
 
   setUint8(pos: number, value: number) {
