@@ -1,9 +1,9 @@
 {
   "name": "mp4edit",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Minimal mp4 parser and builder in typescript. Built for use with extracting and changing metadata on audio files.",
-  "main": "./lib/mp4.js",
-  "types": "./lib/mp4.d.ts",
+  "main": "./lib/mp4Tree.js",
+  "types": "./lib/mp4Tree.d.ts",
   "scripts": {
     "build": "tsc",
     "test": "jest --env=node --colors test",

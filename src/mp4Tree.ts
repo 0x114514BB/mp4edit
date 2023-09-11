@@ -1,8 +1,8 @@
 import { MP4TreeNode } from "./MP4TreeNode";
 import { open, stat } from 'node:fs/promises';
 import { createWriteStream } from "node:fs";
-import stream from 'node:stream';
-import streamPromises from 'stream/promises';
+import { PassThrough } from 'node:stream';
+import { pipeline } from 'stream/promises';
 
 export class MP4Tree {
   isValid = false;
@@ -58,7 +58,7 @@ export class MP4Tree {
       end: boxStart,
       autoClose: false
     });
-    const streamToReplace = new stream.PassThrough().end(newNodeBuffer);
+    const streamToReplace = new PassThrough().end(newNodeBuffer);
     const streamAfter = fd.createReadStream({
       start: boxEnd,
       autoClose: false
@@ -66,9 +66,9 @@ export class MP4Tree {
 
     try {
       await Promise.all([
-        streamPromises.pipeline(streamBefore, createWriteStream(outFile, { start: 0 })),
-        streamPromises.pipeline(streamToReplace, createWriteStream(outFile, { start: boxStart })),
-        streamPromises.pipeline(streamAfter, createWriteStream(outFile, { start: boxStart + newNodeBuffer.length }))
+        pipeline(streamBefore, createWriteStream(outFile, { start: 0 })),
+        pipeline(streamToReplace, createWriteStream(outFile, { start: boxStart })),
+        pipeline(streamAfter, createWriteStream(outFile, { start: boxStart + newNodeBuffer.length }))
       ]);
       streamBefore.close();
       streamAfter.close();
